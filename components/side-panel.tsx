@@ -212,27 +212,34 @@ export function SidePanel({ item, allItems, onClose, onRefresh, onSelectItem }: 
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto">
-          {/* Status override */}
-          <div className="px-5 py-4 border-b border-border">
-            <p className="text-xs font-medium text-muted-foreground mb-2">Set Status</p>
-            <div className="flex flex-wrap gap-1.5">
-              {STATUS_OPTIONS.map(s => (
-                <button
-                  key={s}
-                  onClick={() => handleStatusChange(s)}
-                  disabled={savingStatus}
-                  className={cn(
-                    'text-xs px-2.5 py-1 rounded-full border transition-all',
-                    item.status === s
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30'
-                  )}
-                >
-                  {STATUS_LABELS[s]}
-                </button>
-              ))}
+          {/* Status override — only on leaf items (no children) */}
+          {children.length === 0 ? (
+            <div className="px-5 py-4 border-b border-border">
+              <p className="text-xs font-medium text-muted-foreground mb-2">Set Status</p>
+              <div className="flex flex-wrap gap-1.5">
+                {STATUS_OPTIONS.map(s => (
+                  <button
+                    key={s}
+                    onClick={() => handleStatusChange(s)}
+                    disabled={savingStatus}
+                    className={cn(
+                      'text-xs px-2.5 py-1 rounded-full border transition-all',
+                      item.status === s
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30'
+                    )}
+                  >
+                    {STATUS_LABELS[s]}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="px-5 py-4 border-b border-border">
+              <p className="text-xs font-medium text-muted-foreground mb-1">Status</p>
+              <p className="text-xs text-muted-foreground">Derived from children — set status on individual tasks or key results.</p>
+            </div>
+          )}
 
           {/* Children */}
           {children.length > 0 && (
