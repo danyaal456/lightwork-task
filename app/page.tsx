@@ -8,7 +8,7 @@ import { AllItemsView } from '@/components/views/all-items'
 import { OverviewView } from '@/components/views/overview'
 import { SidePanel } from '@/components/side-panel'
 import { AgentChat } from '@/components/agent-chat'
-import { Item } from '@/lib/supabase'
+import type { Item } from '@/lib/supabase'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchAllItems, buildTree } from '@/lib/db'
 
@@ -16,13 +16,16 @@ export type ViewType = 'dashboard' | 'timeline' | 'items' | 'overview'
 
 export default function Home() {
   const [activeView, setActiveView] = useState<ViewType>('dashboard')
-  const [selectedItem, setSelectedItem] = useState<Item | null>(null)
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
   const queryClient = useQueryClient()
 
   const { data: allItems = [], isLoading } = useQuery({
     queryKey: ['items'],
     queryFn: fetchAllItems,
   })
+
+  // Derive selectedItem from allItems so it auto-updates after any refresh
+  const selectedItem = selectedItemId ? allItems.find(i => i.id === selectedItemId) ?? null : null
 
   const tree = buildTree(allItems)
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['items'] })
@@ -40,13 +43,13 @@ export default function Home() {
           ) : (
             <>
               {activeView === 'dashboard' && (
-                <DashboardView items={allItems} tree={tree} onSelectItem={setSelectedItem} />
+                <DashboardView items={allItems} tree={tree} onSelectItem={i => setSelectedItemId(i.id)} />
               )}
               {activeView === 'timeline' && (
-                <TimelineView items={allItems} onSelectItem={setSelectedItem} />
+                <TimelineView items={allItems} onSelectItem={i => setSelectedItemId(i.id)} />
               )}
               {activeView === 'items' && (
-                <AllItemsView tree={tree} onSelectItem={setSelectedItem} onRefresh={refresh} />
+                <AllItemsView tree={tree} onSelectItem={i => setSelectedItemId(i.id)} onRefresh={refresh} />
               )}
               {activeView === 'overview' && (
                 <OverviewView />
@@ -55,16 +58,16 @@ export default function Home() {
           )}
         </div>
 
-        <AgentChat selectedItem={selectedItem} onRefresh={refresh} />
+        <AgentChat selectedItem={selectedItem ?? null} onRefresh={refresh} />
       </main>
 
       {selectedItem && (
         <SidePanel
           item={selectedItem}
           allItems={allItems}
-          onClose={() => setSelectedItem(null)}
+          onClose={() => setSelectedItemId(null)}
           onRefresh={refresh}
-          onSelectItem={setSelectedItem}
+          onSelectItem={i => setSelectedItemId(i.id)}
         />
       )}
     </div>

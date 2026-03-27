@@ -115,9 +115,7 @@ function ItemRow({ item, onSelectItem, onRefresh }: {
 
   return (
     <div>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
+      <div
         className={cn('flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-muted/50 group transition-colors', TYPE_INDENT[item.type])}
       >
         <button
@@ -198,7 +196,7 @@ function ItemRow({ item, onSelectItem, onRefresh }: {
             <Trash2 className="w-3.5 h-3.5" />
           </button>
         </div>
-      </motion.div>
+      </div>
 
       {/* Inline add child */}
       <AnimatePresence>
