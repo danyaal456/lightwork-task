@@ -4,10 +4,11 @@ import { Item, StatusType, TeamType, ItemType } from '@/lib/supabase'
 import { getEffectiveStatus, urgencyScore, formatDeadline, daysUntilDeadline, STATUS_LABELS } from '@/lib/utils'
 import { StatusBadge } from '@/components/status-badge'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts'
-import { AlertTriangle, CheckCircle, Clock, Users, TrendingUp, Zap } from 'lucide-react'
+import { AlertTriangle, CheckCircle, Clock, Users, TrendingUp, Zap, Info } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 
 const TEAMS: TeamType[] = ['engineering', 'product', 'commercial', 'operations']
 const TEAM_LABELS: Record<TeamType, string> = {
@@ -37,11 +38,21 @@ function Widget({ children, className = '' }: { children: React.ReactNode; class
   )
 }
 
-function SectionTitle({ icon: Icon, label }: { icon: React.ElementType; label: string }) {
+function SectionTitle({ icon: Icon, label, description }: { icon: React.ElementType; label: string; description?: string }) {
   return (
     <div className="flex items-center gap-2 mb-3">
       <Icon className="w-4 h-4 text-muted-foreground" />
       <h2 className="text-sm font-semibold text-foreground">{label}</h2>
+      {description && (
+        <Tooltip>
+          <TooltipTrigger className="text-muted-foreground hover:text-foreground transition-colors ml-0.5">
+            <Info className="w-3.5 h-3.5" />
+          </TooltipTrigger>
+          <TooltipContent side="right" className="max-w-[220px] text-center">
+            {description}
+          </TooltipContent>
+        </Tooltip>
+      )}
     </div>
   )
 }
@@ -157,7 +168,7 @@ export function DashboardView({ items, tree, onSelectItem }: {
 
       {/* Hero: 3 most urgent — all types */}
       <div>
-        <SectionTitle icon={Zap} label="Most Urgent" />
+        <SectionTitle icon={Zap} label="Most Urgent" description="The 3 highest-priority items across all teams, ranked by status severity then deadline proximity." />
         <div className="grid grid-cols-3 gap-3">
           {urgent.map((item, idx) => {
             const days = daysUntilDeadline(item.deadline_value)
@@ -208,7 +219,7 @@ export function DashboardView({ items, tree, onSelectItem }: {
       {/* Row 2: risk widgets */}
       <div className="grid grid-cols-3 gap-4">
         <Widget>
-          <SectionTitle icon={Clock} label="Stale & Approaching" />
+          <SectionTitle icon={Clock} label="Stale & Approaching" description="Items due within 7 days that are not yet done or missed — likely needing an update or push." />
           {stale.length === 0 ? (
             <p className="text-xs text-muted-foreground">No items approaching deadline</p>
           ) : (
@@ -226,7 +237,7 @@ export function DashboardView({ items, tree, onSelectItem }: {
         </Widget>
 
         <Widget>
-          <SectionTitle icon={AlertTriangle} label="Missed" />
+          <SectionTitle icon={AlertTriangle} label="Missed" description="Items past their deadline that have not been marked as done. Needs immediate attention." />
           {missed.length === 0 ? (
             <p className="text-xs text-muted-foreground">No missed deadlines</p>
           ) : (
@@ -244,7 +255,7 @@ export function DashboardView({ items, tree, onSelectItem }: {
         </Widget>
 
         <Widget>
-          <SectionTitle icon={AlertTriangle} label="At Risk by Team" />
+          <SectionTitle icon={AlertTriangle} label="At Risk by Team" description="Count of items within 2 days of their deadline, grouped by team. Shows which teams are under the most pressure." />
           {atRisk.length === 0 ? (
             <p className="text-xs text-muted-foreground">Nothing at risk</p>
           ) : (
@@ -268,7 +279,7 @@ export function DashboardView({ items, tree, onSelectItem }: {
       <div className="grid grid-cols-2 gap-4">
         {/* Donut */}
         <Widget>
-          <SectionTitle icon={TrendingUp} label="Status Distribution" />
+          <SectionTitle icon={TrendingUp} label="Status Distribution" description="Breakdown of all items by their current status. Gives a quick health overview of the entire company." />
           <ResponsiveContainer width="100%" height={180}>
             <PieChart>
               <Pie data={donutData} cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={2} dataKey="value">
@@ -330,7 +341,7 @@ export function DashboardView({ items, tree, onSelectItem }: {
       {/* Row 4: objectives + people */}
       <div className="grid grid-cols-2 gap-4">
         <Widget>
-          <SectionTitle icon={TrendingUp} label="Completion by Objective" />
+          <SectionTitle icon={TrendingUp} label="Completion by Objective" description="Percentage of child tasks marked done under each top-level objective. Tracks strategic progress." />
           <div className="space-y-3">
             {objCompletion.map(o => (
               <div key={o.title}>
@@ -353,7 +364,7 @@ export function DashboardView({ items, tree, onSelectItem }: {
         </Widget>
 
         <Widget>
-          <SectionTitle icon={Users} label="Owner Workload" />
+          <SectionTitle icon={Users} label="Owner Workload" description="Number of open (non-done) items per person. Red indicates missed items. Useful for spotting overloaded team members." />
           <div className="space-y-2">
             {ownerWorkload.slice(0, 6).map(([owner, count]) => (
               <div key={owner} className="flex items-center justify-between">
