@@ -3,7 +3,7 @@
 import { Item, StatusType, TeamType, ItemType } from '@/lib/supabase'
 import { getEffectiveStatus, urgencyScore, formatDeadline, daysUntilDeadline, STATUS_LABELS } from '@/lib/utils'
 import { StatusBadge } from '@/components/status-badge'
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts'
+import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts'
 import { AlertTriangle, CheckCircle, Clock, Users, TrendingUp, Zap, Info } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useState } from 'react'
@@ -287,7 +287,7 @@ export function DashboardView({ items, tree, onSelectItem }: {
                   <Cell key={i} fill={entry.color} />
                 ))}
               </Pie>
-              <Tooltip formatter={(value, name) => [value, name]} contentStyle={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }} />
+              <RechartsTooltip formatter={(value, name) => [value, name]} contentStyle={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }} />
               <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
             </PieChart>
           </ResponsiveContainer>
