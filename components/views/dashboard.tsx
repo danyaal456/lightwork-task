@@ -1,7 +1,8 @@
 'use client'
 
 import { Item, StatusType, TeamType, ItemType } from '@/lib/supabase'
-import { getEffectiveStatus, urgencyScore, formatDeadline, daysUntilDeadline, STATUS_LABELS } from '@/lib/utils'
+import { getEffectiveStatus, urgencyScore, formatDeadline, daysUntilDeadline, STATUS_LABELS, TEAM_COLORS } from '@/lib/utils'
+import { differenceInDays, parseISO } from 'date-fns'
 import { StatusBadge } from '@/components/status-badge'
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts'
 import { AlertTriangle, CheckCircle, Clock, Users, TrendingUp, Zap, Info } from 'lucide-react'
@@ -128,7 +129,7 @@ export function DashboardView({ items, tree, onSelectItem }: {
 
   // Completion by team — filtered by type
   const teamCompletion = TEAMS.map(team => {
-    const teamItems = items.filter(i => i.team === team && (teamFilter === 'all' || i.type === teamFilter))
+    const teamItems = items.filter(i => (i.teams ?? []).includes(team) && (teamFilter === 'all' || i.type === teamFilter))
     const done = teamItems.filter(i => i.status === 'done').length
     return { team, total: teamItems.length, done, pct: teamItems.length > 0 ? Math.round((done / teamItems.length) * 100) : 0 }
   })
@@ -205,7 +206,7 @@ export function DashboardView({ items, tree, onSelectItem }: {
 
                 <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors line-clamp-2">{item.title}</p>
                 <div className="flex items-center justify-between mt-2">
-                  <p className="text-xs text-muted-foreground capitalize">{item.team} · {item.owners?.join(', ')}</p>
+                  <p className="text-xs text-muted-foreground capitalize">{(item.teams ?? []).join(', ')} · {item.owners?.join(', ')}</p>
                   <StatusBadge status={status} />
                 </div>
               </motion.button>
@@ -217,19 +218,25 @@ export function DashboardView({ items, tree, onSelectItem }: {
       {/* Row 2: risk widgets */}
       <div className="grid grid-cols-3 gap-4">
         <Widget>
-          <SectionTitle icon={Clock} label="Stale & Approaching" description="Items due within 7 days that are not yet done or missed — likely needing an update or push." />
+          <SectionTitle icon={Clock} label="Stale & Approaching" description="Items due within 7 days — shows days until deadline and days since last activity." />
           {stale.length === 0 ? (
             <p className="text-xs text-muted-foreground">No items approaching deadline</p>
           ) : (
             <div className="space-y-2">
-              {stale.map(item => (
-                <button key={item.id} onClick={() => onSelectItem(item)} className="w-full text-left">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-xs font-medium text-foreground truncate">{item.title}</p>
-                    <span className="text-xs text-amber-400 shrink-0">{daysUntilDeadline(item.deadline_value)}d</span>
-                  </div>
-                </button>
-              ))}
+              {stale.map(item => {
+                const daysSinceUpdate = differenceInDays(new Date(), parseISO(item.updated_at))
+                return (
+                  <button key={item.id} onClick={() => onSelectItem(item)} className="w-full text-left group">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-medium text-foreground truncate group-hover:text-primary transition-colors">{item.title}</p>
+                      <span className="text-xs text-amber-400 shrink-0">{daysUntilDeadline(item.deadline_value)}d left</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Last activity: {daysSinceUpdate === 0 ? 'today' : `${daysSinceUpdate}d ago`}
+                    </p>
+                  </button>
+                )
+              })}
             </div>
           )}
         </Widget>
@@ -244,7 +251,9 @@ export function DashboardView({ items, tree, onSelectItem }: {
                 <button key={item.id} onClick={() => onSelectItem(item)} className="w-full text-left">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-xs font-medium text-foreground truncate">{item.title}</p>
-                    <span className="text-xs text-red-400 capitalize shrink-0">{item.team}</span>
+                    <div className="flex gap-1 shrink-0">
+                      {(item.teams ?? []).map(t => <span key={t} className={cn('text-xs px-1.5 py-0.5 rounded-full capitalize', TEAM_COLORS[t])}>{t}</span>)}
+                    </div>
                   </div>
                 </button>
               ))}
@@ -259,7 +268,7 @@ export function DashboardView({ items, tree, onSelectItem }: {
           ) : (
             <div className="space-y-2">
               {TEAMS.map(team => {
-                const count = atRisk.filter(i => i.team === team).length
+                const count = atRisk.filter(i => (i.teams ?? []).includes(team)).length
                 if (count === 0) return null
                 return (
                   <div key={team} className="flex items-center justify-between">

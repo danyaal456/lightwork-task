@@ -29,7 +29,7 @@ export interface Item {
   title: string
   description?: string
   parent_id?: string
-  team: TeamType
+  teams: TeamType[]
   status: StatusType
   deadline_type: DeadlineType
   deadline_value: string

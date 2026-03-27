@@ -19,14 +19,14 @@ const tools: OpenAI.Chat.ChatCompletionTool[] = [
         properties: {
           type: { type: 'string', enum: ['objective', 'key_result', 'task'] },
           title: { type: 'string' },
-          team: { type: 'string', enum: ['engineering', 'product', 'commercial', 'operations'] },
+          teams: { type: 'array', items: { type: 'string', enum: ['engineering', 'product', 'commercial', 'operations'] }, description: 'One or more teams responsible' },
           deadline_type: { type: 'string', enum: ['date', 'month', 'quarter'] },
           deadline_value: { type: 'string', description: 'ISO date string YYYY-MM-DD' },
           parent_id: { type: 'string', description: 'UUID of parent item (optional)' },
           description: { type: 'string' },
           owners: { type: 'array', items: { type: 'string' }, description: 'List of owner names' },
         },
-        required: ['type', 'title', 'team', 'deadline_type', 'deadline_value', 'owners'],
+        required: ['type', 'title', 'teams', 'deadline_type', 'deadline_value', 'owners'],
       },
     },
   },
@@ -41,7 +41,7 @@ const tools: OpenAI.Chat.ChatCompletionTool[] = [
           id: { type: 'string', description: 'UUID of the item to update' },
           title: { type: 'string' },
           description: { type: 'string' },
-          team: { type: 'string', enum: ['engineering', 'product', 'commercial', 'operations'] },
+          teams: { type: 'array', items: { type: 'string', enum: ['engineering', 'product', 'commercial', 'operations'] } },
           status: { type: 'string', enum: ['not_started', 'on_track', 'at_risk', 'missed', 'done'] },
           deadline_type: { type: 'string', enum: ['date', 'month', 'quarter'] },
           deadline_value: { type: 'string', description: 'ISO date string YYYY-MM-DD' },
@@ -133,10 +133,10 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
       })
       return {
         total: items.length,
-        missed: missed.map(i => ({ title: i.title, team: i.team, deadline: formatDeadline(i.deadline_type, i.deadline_value) })),
-        at_risk: atRisk.map(i => ({ title: i.title, team: i.team, deadline: formatDeadline(i.deadline_type, i.deadline_value) })),
-        completed: done.map(i => ({ title: i.title, team: i.team })),
-        due_this_week: upcoming.map(i => ({ title: i.title, team: i.team, days_left: daysUntilDeadline(i.deadline_value), status: STATUS_LABELS[getEffectiveStatus(i)] })),
+        missed: missed.map(i => ({ title: i.title, teams: i.teams, deadline: formatDeadline(i.deadline_type, i.deadline_value) })),
+        at_risk: atRisk.map(i => ({ title: i.title, teams: i.teams, deadline: formatDeadline(i.deadline_type, i.deadline_value) })),
+        completed: done.map(i => ({ title: i.title, teams: i.teams })),
+        due_this_week: upcoming.map(i => ({ title: i.title, teams: i.teams, days_left: daysUntilDeadline(i.deadline_value), status: STATUS_LABELS[getEffectiveStatus(i)] })),
       }
     }
     default:
@@ -147,19 +147,37 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
 export async function POST(req: NextRequest) {
   const { messages, currentItemId, currentItemTitle } = await req.json()
 
+  // Fetch live data to inject into context so LLM can answer data questions directly
+  const allItems = await fetchAllItems()
+  const itemSummary = allItems.map(i => ({
+    id: i.id,
+    type: i.type,
+    title: i.title,
+    status: i.status,
+    teams: i.teams,
+    owners: i.owners,
+    deadline: formatDeadline(i.deadline_type, i.deadline_value),
+    deadline_value: i.deadline_value,
+    parent_id: i.parent_id ?? null,
+  }))
+
   const systemPrompt = `You are an operations orchestration agent for LightWork AI, a 20-30 person startup.
 You help the Founder's Associate manage team objectives, key results, and tasks through natural conversation.
 
 You have access to tools to create, update, delete items, add notes, add links, and generate weekly summaries.
 The item hierarchy is: Objective → Key Result → Task (max 3 levels).
-Teams: engineering, product, commercial, operations.
+Teams: engineering, product, commercial, operations (items can belong to multiple teams).
 Statuses: not_started, on_track, at_risk, missed, done.
 
 ${currentItemId ? `The user is currently viewing: "${currentItemTitle}" (ID: ${currentItemId}). When they say "this", "it", "here" etc., they mean this item.` : 'The user is on the main dashboard.'}
 
+CURRENT DATA (${allItems.length} items):
+${JSON.stringify(itemSummary, null, 2)}
+
+Use the above data to answer any factual questions (counts, statuses, owners, etc.) directly without calling tools.
+Only call tools when the user wants to CREATE, UPDATE, or DELETE something.
 Be concise and action-oriented. When you perform an action, briefly confirm what you did.
 If you need an item ID that isn't clear from context, ask the user to clarify which item they mean.
-When generating a weekly summary, present it in a clear, structured format.
 Today's date is ${new Date().toISOString().split('T')[0]}.`
 
   const response = await client.chat.completions.create({

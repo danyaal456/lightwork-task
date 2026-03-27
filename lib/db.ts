@@ -58,7 +58,7 @@ export async function fetchItem(id: string): Promise<Item | null> {
 export async function createItem(params: {
   type: ItemType
   title: string
-  team: TeamType
+  teams: TeamType[]
   deadline_type: DeadlineType
   deadline_value: string
   parent_id?: string
@@ -79,7 +79,7 @@ export async function createItem(params: {
 export async function updateItem(id: string, updates: Partial<{
   title: string
   description: string
-  team: TeamType
+  teams: TeamType[]
   status: StatusType
   deadline_type: DeadlineType
   deadline_value: string

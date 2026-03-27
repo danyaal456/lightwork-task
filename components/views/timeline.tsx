@@ -73,7 +73,7 @@ export function TimelineView({ items, onSelectItem }: {
                     {/* Title + team */}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors truncate">{item.title}</p>
-                      <p className="text-xs text-muted-foreground capitalize">{item.team} · {item.owners?.join(', ')}</p>
+                      <p className="text-xs text-muted-foreground capitalize">{(item.teams ?? []).join(', ')} · {item.owners?.join(', ')}</p>
                     </div>
 
                     {/* Status */}

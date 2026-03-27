@@ -49,7 +49,7 @@ export default function Home() {
                 <TimelineView items={allItems} onSelectItem={i => setSelectedItemId(i.id)} />
               )}
               {activeView === 'items' && (
-                <AllItemsView tree={tree} onSelectItem={i => setSelectedItemId(i.id)} onRefresh={refresh} />
+                <AllItemsView tree={tree} allItems={allItems} onSelectItem={i => setSelectedItemId(i.id)} onRefresh={refresh} />
               )}
               {activeView === 'overview' && (
                 <OverviewView />

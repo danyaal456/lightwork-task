@@ -28,7 +28,7 @@ export function SidePanel({ item, allItems, onClose, onRefresh, onSelectItem }: 
   const [linkUrl, setLinkUrl] = useState('')
   const [showLinkForm, setShowLinkForm] = useState(false)
   const [savingStatus, setSavingStatus] = useState(false)
-  const [editingTeam, setEditingTeam] = useState(false)
+  const [editingTeams, setEditingTeams] = useState(false)
   const [editingOwners, setEditingOwners] = useState(false)
   const [ownerInput, setOwnerInput] = useState('')
 
@@ -70,9 +70,10 @@ export function SidePanel({ item, allItems, onClose, onRefresh, onSelectItem }: 
     setSavingStatus(false)
   }
 
-  async function handleTeamChange(team: TeamType) {
-    await updateItem(item.id, { team })
-    setEditingTeam(false)
+  async function handleTeamToggle(team: TeamType) {
+    const current = item.teams ?? []
+    const next = current.includes(team) ? current.filter(t => t !== team) : [...current, team]
+    await updateItem(item.id, { teams: next })
     onRefresh()
   }
 
@@ -140,26 +141,45 @@ export function SidePanel({ item, allItems, onClose, onRefresh, onSelectItem }: 
           <div className="flex items-center gap-2 mt-2 flex-wrap">
             <StatusBadge status={effectiveStatus} />
 
-            {/* Editable team */}
+            {/* Editable teams (multi-select) */}
             <div className="relative">
-              <button
-                onClick={() => setEditingTeam(t => !t)}
-                className={cn('text-xs px-2 py-0.5 rounded-full capitalize hover:opacity-80 transition-opacity', TEAM_COLORS[item.team])}
-              >
-                {item.team}
-              </button>
-              {editingTeam && (
-                <div className="absolute top-6 left-0 z-50 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[130px]">
+              <div className="flex items-center gap-1 flex-wrap">
+                {(item.teams ?? []).map(t => (
+                  <button
+                    key={t}
+                    onClick={() => setEditingTeams(v => !v)}
+                    className={cn('text-xs px-2 py-0.5 rounded-full capitalize hover:opacity-80 transition-opacity', TEAM_COLORS[t])}
+                  >
+                    {t}
+                  </button>
+                ))}
+                {(item.teams ?? []).length === 0 && (
+                  <button
+                    onClick={() => setEditingTeams(v => !v)}
+                    className="text-xs px-2 py-0.5 rounded-full border border-dashed border-border text-muted-foreground hover:border-foreground/30"
+                  >
+                    + team
+                  </button>
+                )}
+              </div>
+              {editingTeams && (
+                <div className="absolute top-7 left-0 z-50 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[140px]">
                   {TEAM_OPTIONS.map(t => (
                     <button
                       key={t}
-                      onClick={() => handleTeamChange(t)}
-                      className={cn('w-full text-left text-xs px-3 py-1.5 capitalize hover:bg-muted transition-colors flex items-center justify-between', t === item.team ? 'text-foreground' : 'text-muted-foreground')}
+                      onClick={() => handleTeamToggle(t)}
+                      className="w-full text-left text-xs px-3 py-1.5 capitalize hover:bg-muted transition-colors flex items-center justify-between text-muted-foreground hover:text-foreground"
                     >
                       {t}
-                      {t === item.team && <Check className="w-3 h-3" />}
+                      {(item.teams ?? []).includes(t) && <Check className="w-3 h-3 text-primary" />}
                     </button>
                   ))}
+                  <button
+                    onClick={() => setEditingTeams(false)}
+                    className="w-full text-left text-xs px-3 py-1.5 text-muted-foreground/60 border-t border-border mt-1 pt-1.5"
+                  >
+                    Done
+                  </button>
                 </div>
               )}
             </div>
