@@ -72,19 +72,20 @@ function ItemRow({ item, onSelectItem, onRefresh }: {
   onRefresh: () => void
 }) {
   const [expanded, setExpanded] = useState(true)
-  const [adding, setAdding] = useState(false)
+  const [adding, setAdding] = useState<ItemType | null>(null)
   const [newTitle, setNewTitle] = useState('')
   const hasChildren = item.children && item.children.length > 0
   const status = getEffectiveStatus(item)
 
-  const childType: ItemType | null =
-    item.type === 'objective' ? 'key_result' :
-    item.type === 'key_result' ? 'task' : null
+  // Objectives can add KR or Task; KRs can add Task; Tasks can't add children
+  const childOptions: ItemType[] =
+    item.type === 'objective' ? ['key_result', 'task'] :
+    item.type === 'key_result' ? ['task'] : []
 
   async function handleAdd() {
-    if (!newTitle.trim() || !childType) return
+    if (!newTitle.trim() || !adding) return
     await createItem({
-      type: childType,
+      type: adding,
       title: newTitle.trim(),
       team: item.team,
       deadline_type: 'date',
@@ -93,7 +94,7 @@ function ItemRow({ item, onSelectItem, onRefresh }: {
       owners: item.owners ?? [],
     })
     setNewTitle('')
-    setAdding(false)
+    setAdding(null)
     onRefresh()
   }
 
@@ -139,15 +140,21 @@ function ItemRow({ item, onSelectItem, onRefresh }: {
         <span className="text-xs text-muted-foreground shrink-0">{formatDeadline(item.deadline_type, item.deadline_value)}</span>
 
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-          {childType && (
+          {childOptions.map(type => (
             <button
-              onClick={() => setAdding(a => !a)}
-              className="p-1 rounded hover:bg-primary/20 text-muted-foreground hover:text-primary transition-colors"
-              title={`Add ${childType.replace('_', ' ')}`}
+              key={type}
+              onClick={() => setAdding(a => a === type ? null : type)}
+              className={cn(
+                'text-xs px-1.5 py-0.5 rounded transition-colors',
+                adding === type
+                  ? 'bg-primary text-primary-foreground'
+                  : 'hover:bg-primary/20 text-muted-foreground hover:text-primary'
+              )}
+              title={`Add ${type.replace('_', ' ')}`}
             >
-              <Plus className="w-3.5 h-3.5" />
+              + {TYPE_LABEL[type]}
             </button>
-          )}
+          ))}
           <button
             onClick={handleDelete}
             className="p-1 rounded hover:bg-red-500/20 text-muted-foreground hover:text-red-400 transition-colors"
@@ -159,24 +166,24 @@ function ItemRow({ item, onSelectItem, onRefresh }: {
 
       {/* Inline add child */}
       <AnimatePresence>
-        {adding && childType && (
+        {adding && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className={cn('flex items-center gap-2 px-3 py-1.5', TYPE_INDENT[childType])}
+            className={cn('flex items-center gap-2 px-3 py-1.5', TYPE_INDENT[adding])}
           >
             <div className="w-4" />
             <input
               autoFocus
               value={newTitle}
               onChange={e => setNewTitle(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') setAdding(false) }}
-              placeholder={`New ${childType.replace('_', ' ')} title...`}
+              onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') setAdding(null) }}
+              placeholder={`New ${adding.replace('_', ' ')} title...`}
               className="flex-1 text-sm bg-muted rounded-lg px-3 py-1.5 outline-none border border-border focus:border-primary transition-colors"
             />
             <button onClick={handleAdd} className="text-xs px-3 py-1.5 bg-primary text-primary-foreground rounded-lg hover:opacity-90">Add</button>
-            <button onClick={() => setAdding(false)} className="text-xs text-muted-foreground hover:text-foreground">Cancel</button>
+            <button onClick={() => setAdding(null)} className="text-xs text-muted-foreground hover:text-foreground">Cancel</button>
           </motion.div>
         )}
       </AnimatePresence>
