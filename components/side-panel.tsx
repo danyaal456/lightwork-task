@@ -224,7 +224,7 @@ export function SidePanel({ item, allItems, onClose, onRefresh, onSelectItem }: 
                     disabled={savingStatus}
                     className={cn(
                       'text-xs px-2.5 py-1 rounded-full border transition-all',
-                      item.status === s
+                      effectiveStatus === s
                         ? 'bg-primary text-primary-foreground border-primary'
                         : 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30'
                     )}

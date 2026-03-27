@@ -9,12 +9,13 @@ export function cn(...inputs: ClassValue[]) {
 
 export function computeStatus(deadlineValue: string, currentStatus: StatusType): StatusType {
   if (currentStatus === 'done') return 'done'
-  const today = new Date()
-  const deadline = parseISO(deadlineValue)
-  const daysUntil = differenceInDays(deadline, today)
+  const daysUntil = differenceInDays(parseISO(deadlineValue), new Date())
+  // Past deadline always overrides to missed
   if (daysUntil < 0) return 'missed'
-  if (daysUntil <= 2) return 'at_risk'
-  return currentStatus === 'not_started' ? 'not_started' : 'on_track'
+  // Auto-escalate only when item hasn't been manually assessed yet
+  if (currentStatus === 'not_started' && daysUntil <= 2) return 'at_risk'
+  // Respect any manual status otherwise
+  return currentStatus
 }
 
 export function getEffectiveStatus(item: Item): StatusType {
