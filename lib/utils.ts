@@ -36,12 +36,20 @@ export function worstStatus(statuses: StatusType[]): StatusType {
   )
 }
 
+// Urgency priority: missed → at_risk → not_started → on_track (lower score = more urgent)
+const URGENCY_TIER: Record<StatusType, number> = {
+  missed: 0,
+  at_risk: 1,
+  not_started: 2,
+  on_track: 3,
+  done: 999,
+}
+
 export function urgencyScore(item: Item): number {
-  const today = new Date()
-  const deadline = parseISO(item.deadline_value)
-  const daysUntil = differenceInDays(deadline, today)
-  const statusPenalty = STATUS_RANK[getEffectiveStatus(item)]
-  return daysUntil - statusPenalty * 10
+  const status = getEffectiveStatus(item)
+  const days = differenceInDays(parseISO(item.deadline_value), new Date())
+  // Primary sort: status tier (×1000 to dominate), secondary: days remaining
+  return URGENCY_TIER[status] * 1000 + days
 }
 
 export function formatDeadline(deadlineType: string, deadlineValue: string): string {
