@@ -3,15 +3,16 @@
 import { Item, Note, Link } from '@/lib/supabase'
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, ExternalLink, Plus, Trash2, ChevronRight, Link2, MessageSquare } from 'lucide-react'
+import { X, ExternalLink, Plus, Trash2, ChevronRight, Link2, MessageSquare, Check } from 'lucide-react'
 import { StatusBadge } from '@/components/status-badge'
 import { fetchNotes, addNote, fetchLinks, addLink, deleteLink, updateItem } from '@/lib/db'
 import { formatDeadline, getEffectiveStatus, STATUS_LABELS, TEAM_COLORS } from '@/lib/utils'
-import { StatusType } from '@/lib/supabase'
+import { StatusType, TeamType } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 
 const STATUS_OPTIONS: StatusType[] = ['not_started', 'on_track', 'at_risk', 'missed', 'done']
+const TEAM_OPTIONS: TeamType[] = ['engineering', 'product', 'commercial', 'operations']
 
 export function SidePanel({ item, allItems, onClose, onRefresh, onSelectItem }: {
   item: Item
@@ -27,6 +28,9 @@ export function SidePanel({ item, allItems, onClose, onRefresh, onSelectItem }: 
   const [linkUrl, setLinkUrl] = useState('')
   const [showLinkForm, setShowLinkForm] = useState(false)
   const [savingStatus, setSavingStatus] = useState(false)
+  const [editingTeam, setEditingTeam] = useState(false)
+  const [editingOwners, setEditingOwners] = useState(false)
+  const [ownerInput, setOwnerInput] = useState('')
 
   const parent = item.parent_id ? allItems.find(i => i.id === item.parent_id) : null
   const parentParent = parent?.parent_id ? allItems.find(i => i.id === parent.parent_id) : null
@@ -64,6 +68,27 @@ export function SidePanel({ item, allItems, onClose, onRefresh, onSelectItem }: 
     await updateItem(item.id, { status })
     onRefresh()
     setSavingStatus(false)
+  }
+
+  async function handleTeamChange(team: TeamType) {
+    await updateItem(item.id, { team })
+    setEditingTeam(false)
+    onRefresh()
+  }
+
+  async function handleAddOwner() {
+    const name = ownerInput.trim()
+    if (!name) return
+    const newOwners = [...(item.owners ?? []), name]
+    await updateItem(item.id, { owners: newOwners })
+    setOwnerInput('')
+    onRefresh()
+  }
+
+  async function handleRemoveOwner(owner: string) {
+    const newOwners = (item.owners ?? []).filter(o => o !== owner)
+    await updateItem(item.id, { owners: newOwners })
+    onRefresh()
   }
 
   // Breadcrumbs
@@ -114,27 +139,75 @@ export function SidePanel({ item, allItems, onClose, onRefresh, onSelectItem }: 
           {/* Meta row */}
           <div className="flex items-center gap-2 mt-2 flex-wrap">
             <StatusBadge status={effectiveStatus} />
-            <span className={cn('text-xs px-2 py-0.5 rounded-full capitalize', TEAM_COLORS[item.team])}>
-              {item.team}
-            </span>
+
+            {/* Editable team */}
+            <div className="relative">
+              <button
+                onClick={() => setEditingTeam(t => !t)}
+                className={cn('text-xs px-2 py-0.5 rounded-full capitalize hover:opacity-80 transition-opacity', TEAM_COLORS[item.team])}
+              >
+                {item.team}
+              </button>
+              {editingTeam && (
+                <div className="absolute top-6 left-0 z-50 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[130px]">
+                  {TEAM_OPTIONS.map(t => (
+                    <button
+                      key={t}
+                      onClick={() => handleTeamChange(t)}
+                      className={cn('w-full text-left text-xs px-3 py-1.5 capitalize hover:bg-muted transition-colors flex items-center justify-between', t === item.team ? 'text-foreground' : 'text-muted-foreground')}
+                    >
+                      {t}
+                      {t === item.team && <Check className="w-3 h-3" />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <span className="text-xs text-muted-foreground">
               Due {formatDeadline(item.deadline_type, item.deadline_value)}
             </span>
           </div>
 
-          {/* Owners */}
-          {item.owners && item.owners.length > 0 && (
-            <div className="flex items-center gap-1.5 mt-2">
-              {item.owners.map(owner => (
-                <div key={owner} className="flex items-center gap-1 bg-muted rounded-full px-2 py-0.5">
+          {/* Editable owners */}
+          <div className="mt-2">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {(item.owners ?? []).map(owner => (
+                <div key={owner} className="flex items-center gap-1 bg-muted rounded-full px-2 py-0.5 group">
                   <div className="w-4 h-4 rounded-full bg-primary/30 flex items-center justify-center">
                     <span className="text-xs text-primary font-medium">{owner[0]}</span>
                   </div>
                   <span className="text-xs text-foreground">{owner}</span>
+                  <button
+                    onClick={() => handleRemoveOwner(owner)}
+                    className="ml-0.5 text-muted-foreground hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
                 </div>
               ))}
+              <button
+                onClick={() => setEditingOwners(e => !e)}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 px-2 py-0.5 rounded-full border border-dashed border-border hover:border-foreground/30"
+              >
+                <Plus className="w-3 h-3" /> Add owner
+              </button>
             </div>
-          )}
+            {editingOwners && (
+              <div className="flex items-center gap-2 mt-2">
+                <input
+                  autoFocus
+                  value={ownerInput}
+                  onChange={e => setOwnerInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleAddOwner(); if (e.key === 'Escape') setEditingOwners(false) }}
+                  placeholder="Owner name..."
+                  className="flex-1 text-xs bg-muted rounded-lg px-2.5 py-1.5 border border-border outline-none focus:border-primary transition-colors"
+                />
+                <button onClick={handleAddOwner} className="text-xs px-2.5 py-1.5 bg-primary text-primary-foreground rounded-lg hover:opacity-90">Add</button>
+                <button onClick={() => setEditingOwners(false)} className="text-xs text-muted-foreground hover:text-foreground">Cancel</button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Body */}

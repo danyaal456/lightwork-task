@@ -95,10 +95,10 @@ export function DashboardView({ items, tree, onSelectItem }: {
   const [teamFilter, setTeamFilter] = useState<FilterType>('all')
   const objectives = tree.filter(i => i.type === 'objective')
 
-  // Hero: 3 most urgent — ALL item types
+  // Hero: 3 most urgent — all types, strictly by days until due
   const urgent = [...items]
     .filter(i => getEffectiveStatus(i) !== 'done')
-    .sort((a, b) => urgencyScore(a) - urgencyScore(b))
+    .sort((a, b) => daysUntilDeadline(a.deadline_value) - daysUntilDeadline(b.deadline_value))
     .slice(0, 3)
 
   // Stale: approaching deadline, no note in 3 days
