@@ -1,10 +1,10 @@
 'use client'
 
-import { Item, ItemType, TeamType, DeadlineType } from '@/lib/supabase'
-import { getEffectiveStatus, formatDeadline } from '@/lib/utils'
+import { Item, ItemType } from '@/lib/supabase'
+import { getEffectiveStatus, formatDeadline, TEAM_COLORS } from '@/lib/utils'
 import { StatusBadge } from '@/components/status-badge'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronRight, Plus, Trash2 } from 'lucide-react'
+import { ChevronRight, Plus, Trash2, Users } from 'lucide-react'
 import { useState } from 'react'
 import { createItem, deleteItem } from '@/lib/db'
 import { cn } from '@/lib/utils'
@@ -27,11 +27,49 @@ const TYPE_COLORS: Record<ItemType, string> = {
   task: 'bg-muted text-muted-foreground',
 }
 
-function ItemRow({ item, onSelectItem, onRefresh, depth = 0 }: {
+function OwnersTag({ owners }: { owners: string[] }) {
+  const [hovered, setHovered] = useState(false)
+  if (!owners || owners.length === 0) return null
+
+  return (
+    <div className="relative" onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
+      <div className="flex items-center gap-1 bg-muted/80 rounded-full px-2 py-0.5 cursor-default">
+        <Users className="w-3 h-3 text-muted-foreground" />
+        <span className="text-xs text-muted-foreground">
+          {owners.length === 1 ? owners[0] : `${owners[0]} +${owners.length - 1}`}
+        </span>
+      </div>
+      <AnimatePresence>
+        {hovered && owners.length > 1 && (
+          <motion.div
+            initial={{ opacity: 0, y: 4, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 4, scale: 0.95 }}
+            transition={{ duration: 0.1 }}
+            className="absolute bottom-full left-0 mb-1.5 bg-popover border border-border rounded-lg px-3 py-2 shadow-lg z-50 min-w-max"
+          >
+            <p className="text-xs font-medium text-muted-foreground mb-1.5">Owners</p>
+            <div className="space-y-1">
+              {owners.map(o => (
+                <div key={o} className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center">
+                    <span className="text-xs font-medium text-primary">{o[0]}</span>
+                  </div>
+                  <span className="text-xs text-foreground">{o}</span>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+function ItemRow({ item, onSelectItem, onRefresh }: {
   item: Item
   onSelectItem: (item: Item) => void
   onRefresh: () => void
-  depth?: number
 }) {
   const [expanded, setExpanded] = useState(true)
   const [adding, setAdding] = useState(false)
@@ -74,9 +112,9 @@ function ItemRow({ item, onSelectItem, onRefresh, depth = 0 }: {
       >
         <button
           onClick={() => setExpanded(e => !e)}
-          className={cn('w-4 h-4 shrink-0 transition-transform', hasChildren ? 'text-muted-foreground' : 'opacity-0')}
+          className={cn('w-4 h-4 shrink-0', hasChildren ? 'text-muted-foreground' : 'opacity-0 pointer-events-none')}
         >
-          <ChevronRight className={cn('w-4 h-4 transition-transform', expanded ? 'rotate-90' : '')} />
+          <ChevronRight className={cn('w-4 h-4 transition-transform duration-150', expanded ? 'rotate-90' : '')} />
         </button>
 
         <span className={cn('text-xs font-medium px-1.5 py-0.5 rounded shrink-0', TYPE_COLORS[item.type])}>
@@ -90,16 +128,22 @@ function ItemRow({ item, onSelectItem, onRefresh, depth = 0 }: {
           {item.title}
         </button>
 
-        <span className="text-xs text-muted-foreground hidden group-hover:inline capitalize">{item.team}</span>
-        <StatusBadge status={status} />
-        <span className="text-xs text-muted-foreground">{formatDeadline(item.deadline_type, item.deadline_value)}</span>
+        {/* Always-visible team + owner tags */}
+        <span className={cn('text-xs px-2 py-0.5 rounded-full capitalize shrink-0', TEAM_COLORS[item.team])}>
+          {item.team}
+        </span>
 
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <OwnersTag owners={item.owners ?? []} />
+
+        <StatusBadge status={status} />
+        <span className="text-xs text-muted-foreground shrink-0">{formatDeadline(item.deadline_type, item.deadline_value)}</span>
+
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
           {childType && (
             <button
               onClick={() => setAdding(a => !a)}
               className="p-1 rounded hover:bg-primary/20 text-muted-foreground hover:text-primary transition-colors"
-              title={`Add ${childType}`}
+              title={`Add ${childType.replace('_', ' ')}`}
             >
               <Plus className="w-3.5 h-3.5" />
             </button>
@@ -113,7 +157,7 @@ function ItemRow({ item, onSelectItem, onRefresh, depth = 0 }: {
         </div>
       </motion.div>
 
-      {/* Inline add */}
+      {/* Inline add child */}
       <AnimatePresence>
         {adding && childType && (
           <motion.div
@@ -131,10 +175,8 @@ function ItemRow({ item, onSelectItem, onRefresh, depth = 0 }: {
               placeholder={`New ${childType.replace('_', ' ')} title...`}
               className="flex-1 text-sm bg-muted rounded-lg px-3 py-1.5 outline-none border border-border focus:border-primary transition-colors"
             />
-            <button onClick={handleAdd} className="text-xs px-3 py-1.5 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity">
-              Add
-            </button>
-            <button onClick={() => setAdding(false)} className="text-xs text-muted-foreground hover:text-foreground transition-colors">Cancel</button>
+            <button onClick={handleAdd} className="text-xs px-3 py-1.5 bg-primary text-primary-foreground rounded-lg hover:opacity-90">Add</button>
+            <button onClick={() => setAdding(false)} className="text-xs text-muted-foreground hover:text-foreground">Cancel</button>
           </motion.div>
         )}
       </AnimatePresence>
@@ -142,13 +184,9 @@ function ItemRow({ item, onSelectItem, onRefresh, depth = 0 }: {
       {/* Children */}
       <AnimatePresence>
         {expanded && hasChildren && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             {item.children!.map(child => (
-              <ItemRow key={child.id} item={child} onSelectItem={onSelectItem} onRefresh={onRefresh} depth={depth + 1} />
+              <ItemRow key={child.id} item={child} onSelectItem={onSelectItem} onRefresh={onRefresh} />
             ))}
           </motion.div>
         )}
@@ -157,26 +195,35 @@ function ItemRow({ item, onSelectItem, onRefresh, depth = 0 }: {
   )
 }
 
+type RootType = 'objective' | 'key_result' | 'task'
+
+const ROOT_OPTIONS: { type: RootType; label: string; placeholder: string; deadline_type: 'quarter' | 'month' | 'date'; deadline_value: string }[] = [
+  { type: 'objective', label: 'New Objective', placeholder: 'Objective title...', deadline_type: 'quarter', deadline_value: '2026-06-30' },
+  { type: 'key_result', label: 'New Key Result', placeholder: 'Key result title...', deadline_type: 'month', deadline_value: '2026-04-30' },
+  { type: 'task', label: 'New Task', placeholder: 'Task title...', deadline_type: 'date', deadline_value: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] },
+]
+
 export function AllItemsView({ tree, onSelectItem, onRefresh }: {
   tree: Item[]
   onSelectItem: (item: Item) => void
   onRefresh: () => void
 }) {
-  const [addingRoot, setAddingRoot] = useState(false)
+  const [addingType, setAddingType] = useState<RootType | null>(null)
   const [newTitle, setNewTitle] = useState('')
 
-  async function handleAddObjective() {
-    if (!newTitle.trim()) return
+  async function handleAdd() {
+    if (!newTitle.trim() || !addingType) return
+    const opt = ROOT_OPTIONS.find(o => o.type === addingType)!
     await createItem({
-      type: 'objective',
+      type: addingType,
       title: newTitle.trim(),
       team: 'operations',
-      deadline_type: 'quarter',
-      deadline_value: '2026-06-30',
+      deadline_type: opt.deadline_type,
+      deadline_value: opt.deadline_value,
       owners: [],
     })
     setNewTitle('')
-    setAddingRoot(false)
+    setAddingType(null)
     onRefresh()
   }
 
@@ -187,29 +234,46 @@ export function AllItemsView({ tree, onSelectItem, onRefresh }: {
           <h1 className="text-xl font-bold text-foreground">All Items</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Full hierarchy — click any item to open details</p>
         </div>
-        <button
-          onClick={() => setAddingRoot(a => !a)}
-          className="flex items-center gap-2 px-3 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
-        >
-          <Plus className="w-4 h-4" />
-          New Objective
-        </button>
+        <div className="flex items-center gap-2">
+          {ROOT_OPTIONS.map(opt => (
+            <button
+              key={opt.type}
+              onClick={() => setAddingType(addingType === opt.type ? null : opt.type)}
+              className={cn(
+                'flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg transition-all',
+                addingType === opt.type
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80'
+              )}
+            >
+              <Plus className="w-3.5 h-3.5" />
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {addingRoot && (
-        <div className="flex items-center gap-2 mb-4 px-3 py-2 bg-muted rounded-lg">
-          <input
-            autoFocus
-            value={newTitle}
-            onChange={e => setNewTitle(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') handleAddObjective(); if (e.key === 'Escape') setAddingRoot(false) }}
-            placeholder="New objective title..."
-            className="flex-1 text-sm bg-transparent outline-none"
-          />
-          <button onClick={handleAddObjective} className="text-xs px-3 py-1.5 bg-primary text-primary-foreground rounded-lg">Add</button>
-          <button onClick={() => setAddingRoot(false)} className="text-xs text-muted-foreground">Cancel</button>
-        </div>
-      )}
+      <AnimatePresence>
+        {addingType && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="flex items-center gap-2 mb-4 px-3 py-2 bg-muted rounded-lg border border-border"
+          >
+            <input
+              autoFocus
+              value={newTitle}
+              onChange={e => setNewTitle(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') setAddingType(null) }}
+              placeholder={ROOT_OPTIONS.find(o => o.type === addingType)?.placeholder}
+              className="flex-1 text-sm bg-transparent outline-none"
+            />
+            <button onClick={handleAdd} className="text-xs px-3 py-1.5 bg-primary text-primary-foreground rounded-lg hover:opacity-90">Add</button>
+            <button onClick={() => setAddingType(null)} className="text-xs text-muted-foreground hover:text-foreground">Cancel</button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="space-y-1">
         {tree.map(item => (
@@ -217,10 +281,9 @@ export function AllItemsView({ tree, onSelectItem, onRefresh }: {
         ))}
       </div>
 
-      {/* Standalone tasks (no parent) */}
       {tree.length === 0 && (
         <div className="text-center py-16 text-muted-foreground">
-          <p className="text-sm">No items yet. Create an objective or use the AI agent below.</p>
+          <p className="text-sm">No items yet. Create one above or use the AI agent below.</p>
         </div>
       )}
     </div>

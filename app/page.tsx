@@ -5,13 +5,14 @@ import { Sidebar } from '@/components/sidebar'
 import { DashboardView } from '@/components/views/dashboard'
 import { TimelineView } from '@/components/views/timeline'
 import { AllItemsView } from '@/components/views/all-items'
+import { OverviewView } from '@/components/views/overview'
 import { SidePanel } from '@/components/side-panel'
 import { AgentChat } from '@/components/agent-chat'
 import { Item } from '@/lib/supabase'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchAllItems, buildTree } from '@/lib/db'
 
-export type ViewType = 'dashboard' | 'timeline' | 'items'
+export type ViewType = 'dashboard' | 'timeline' | 'items' | 'overview'
 
 export default function Home() {
   const [activeView, setActiveView] = useState<ViewType>('dashboard')
@@ -46,6 +47,9 @@ export default function Home() {
               )}
               {activeView === 'items' && (
                 <AllItemsView tree={tree} onSelectItem={setSelectedItem} onRefresh={refresh} />
+              )}
+              {activeView === 'overview' && (
+                <OverviewView />
               )}
             </>
           )}

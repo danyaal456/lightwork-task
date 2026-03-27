@@ -2,7 +2,7 @@
 
 import { ViewType } from '@/app/page'
 import { cn } from '@/lib/utils'
-import { LayoutDashboard, Clock, List, Sun, Moon } from 'lucide-react'
+import { LayoutDashboard, Clock, List, Sun, Moon, BookOpen } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 
@@ -10,6 +10,7 @@ const views = [
   { id: 'dashboard' as ViewType, label: 'Dashboard', icon: LayoutDashboard },
   { id: 'timeline' as ViewType, label: 'Timeline', icon: Clock },
   { id: 'items' as ViewType, label: 'All Items', icon: List },
+  { id: 'overview' as ViewType, label: 'Overview', icon: BookOpen },
 ]
 
 export function Sidebar({ activeView, onViewChange }: {
