@@ -29,7 +29,7 @@ function Widget({ children, className = '' }: { children: React.ReactNode; class
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`bg-card border border-border rounded-xl p-4 ${className}`}
+      className={`bg-card border border-border rounded-xl p-4 card-glow ${className}`}
     >
       {children}
     </motion.div>
@@ -136,7 +136,7 @@ export function DashboardView({ items, tree, onSelectItem }: {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.05 }}
                 onClick={() => onSelectItem(item)}
-                className="text-left bg-card border border-border rounded-xl p-4 hover:border-primary/50 transition-colors group"
+                className="text-left bg-card border border-border rounded-xl p-4 card-glow hover:border-primary/50 transition-all group"
               >
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <StatusBadge status={status} />
