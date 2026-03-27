@@ -8,7 +8,7 @@ import { AlertTriangle, CheckCircle, Clock, Users, TrendingUp, Zap, Info } from 
 import { motion } from 'framer-motion'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
-import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
+import { AnimatePresence } from 'framer-motion'
 
 const TEAMS: TeamType[] = ['engineering', 'product', 'commercial', 'operations']
 const TEAM_LABELS: Record<TeamType, string> = {
@@ -39,19 +39,28 @@ function Widget({ children, className = '' }: { children: React.ReactNode; class
 }
 
 function SectionTitle({ icon: Icon, label, description }: { icon: React.ElementType; label: string; description?: string }) {
+  const [hovered, setHovered] = useState(false)
   return (
     <div className="flex items-center gap-2 mb-3">
       <Icon className="w-4 h-4 text-muted-foreground" />
       <h2 className="text-sm font-semibold text-foreground">{label}</h2>
       {description && (
-        <Tooltip>
-          <TooltipTrigger className="text-muted-foreground hover:text-foreground transition-colors ml-0.5">
-            <Info className="w-3.5 h-3.5" />
-          </TooltipTrigger>
-          <TooltipContent side="right" className="max-w-[220px] text-center">
-            {description}
-          </TooltipContent>
-        </Tooltip>
+        <div className="relative" onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
+          <Info className="w-3.5 h-3.5 text-muted-foreground hover:text-foreground transition-colors cursor-default" />
+          <AnimatePresence>
+            {hovered && (
+              <motion.div
+                initial={{ opacity: 0, y: 4, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 4, scale: 0.95 }}
+                transition={{ duration: 0.1 }}
+                className="absolute left-0 top-6 z-50 w-56 bg-popover border border-border rounded-lg px-3 py-2 shadow-lg text-xs text-muted-foreground leading-relaxed"
+              >
+                {description}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       )}
     </div>
   )
