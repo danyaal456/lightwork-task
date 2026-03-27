@@ -1,13 +1,15 @@
 'use client'
 
-import { Item, ItemType } from '@/lib/supabase'
+import { Item, ItemType, TeamType } from '@/lib/supabase'
 import { getEffectiveStatus, formatDeadline, TEAM_COLORS } from '@/lib/utils'
 import { StatusBadge } from '@/components/status-badge'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronRight, Plus, Trash2, Users } from 'lucide-react'
+import { ChevronRight, Plus, Trash2, Users, Check } from 'lucide-react'
 import { useState } from 'react'
-import { createItem, deleteItem } from '@/lib/db'
+import { createItem, deleteItem, updateItem } from '@/lib/db'
 import { cn } from '@/lib/utils'
+
+const TEAM_OPTIONS: TeamType[] = ['engineering', 'product', 'commercial', 'operations']
 
 const TYPE_INDENT: Record<ItemType, string> = {
   objective: 'ml-0',
@@ -74,8 +76,15 @@ function ItemRow({ item, onSelectItem, onRefresh }: {
   const [expanded, setExpanded] = useState(true)
   const [adding, setAdding] = useState<ItemType | null>(null)
   const [newTitle, setNewTitle] = useState('')
+  const [editingTeam, setEditingTeam] = useState(false)
   const hasChildren = item.children && item.children.length > 0
   const status = getEffectiveStatus(item)
+
+  async function handleTeamChange(team: TeamType) {
+    await updateItem(item.id, { team })
+    setEditingTeam(false)
+    onRefresh()
+  }
 
   // Objectives can add KR or Task; KRs can add Task; Tasks can't add children
   const childOptions: ItemType[] =
@@ -129,10 +138,37 @@ function ItemRow({ item, onSelectItem, onRefresh }: {
           {item.title}
         </button>
 
-        {/* Always-visible team + owner tags */}
-        <span className={cn('text-xs px-2 py-0.5 rounded-full capitalize shrink-0', TEAM_COLORS[item.team])}>
-          {item.team}
-        </span>
+        {/* Clickable team tag */}
+        <div className="relative shrink-0">
+          <button
+            onClick={e => { e.stopPropagation(); setEditingTeam(t => !t) }}
+            className={cn('text-xs px-2 py-0.5 rounded-full capitalize hover:opacity-80 transition-opacity', TEAM_COLORS[item.team])}
+          >
+            {item.team}
+          </button>
+          <AnimatePresence>
+            {editingTeam && (
+              <motion.div
+                initial={{ opacity: 0, y: 4, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 4, scale: 0.95 }}
+                transition={{ duration: 0.1 }}
+                className="absolute top-6 left-0 z-50 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[140px]"
+              >
+                {TEAM_OPTIONS.map(t => (
+                  <button
+                    key={t}
+                    onClick={e => { e.stopPropagation(); handleTeamChange(t) }}
+                    className="w-full text-left text-xs px-3 py-1.5 capitalize hover:bg-muted transition-colors flex items-center justify-between text-muted-foreground hover:text-foreground"
+                  >
+                    {t}
+                    {t === item.team && <Check className="w-3 h-3 text-primary" />}
+                  </button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
 
         <OwnersTag owners={item.owners ?? []} />
 
