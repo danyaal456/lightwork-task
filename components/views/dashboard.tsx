@@ -1,12 +1,13 @@
 'use client'
 
-import { Item, StatusType, TeamType } from '@/lib/supabase'
+import { Item, StatusType, TeamType, ItemType } from '@/lib/supabase'
 import { getEffectiveStatus, urgencyScore, formatDeadline, daysUntilDeadline, STATUS_LABELS } from '@/lib/utils'
 import { StatusBadge } from '@/components/status-badge'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { AlertTriangle, CheckCircle, Clock, Users, TrendingUp, Zap } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { differenceInDays } from 'date-fns'
+import { useState } from 'react'
+import { cn } from '@/lib/utils'
 
 const TEAMS: TeamType[] = ['engineering', 'product', 'commercial', 'operations']
 const TEAM_LABELS: Record<TeamType, string> = {
@@ -45,16 +46,48 @@ function SectionTitle({ icon: Icon, label }: { icon: React.ElementType; label: s
   )
 }
 
+const TYPE_LABEL: Record<ItemType, string> = {
+  objective: 'OBJ',
+  key_result: 'KR',
+  task: 'T',
+}
+const TYPE_COLORS: Record<ItemType, string> = {
+  objective: 'bg-primary/20 text-primary',
+  key_result: 'bg-yellow-500/20 text-yellow-400',
+  task: 'bg-muted text-muted-foreground',
+}
+
+function getParentChain(item: Item, allItems: Item[]): Item[] {
+  const chain: Item[] = []
+  let current = item
+  while (current.parent_id) {
+    const parent = allItems.find(i => i.id === current.parent_id)
+    if (!parent) break
+    chain.unshift(parent)
+    current = parent
+  }
+  return chain
+}
+
+const FILTER_TYPES = [
+  { label: 'All', value: 'all' },
+  { label: 'Objectives', value: 'objective' },
+  { label: 'Key Results', value: 'key_result' },
+  { label: 'Tasks', value: 'task' },
+] as const
+
+type FilterType = 'all' | 'objective' | 'key_result' | 'task'
+
 export function DashboardView({ items, tree, onSelectItem }: {
   items: Item[]
   tree: Item[]
   onSelectItem: (item: Item) => void
 }) {
-  const tasks = items.filter(i => i.type === 'task')
+  const [teamFilter, setTeamFilter] = useState<FilterType>('all')
   const objectives = tree.filter(i => i.type === 'objective')
 
-  // Hero: 3 most urgent
-  const urgent = [...tasks]
+  // Hero: 3 most urgent — ALL item types
+  const urgent = [...items]
     .filter(i => getEffectiveStatus(i) !== 'done')
     .sort((a, b) => urgencyScore(a) - urgencyScore(b))
     .slice(0, 3)
@@ -84,9 +117,9 @@ export function DashboardView({ items, tree, onSelectItem }: {
     color: STATUS_DONUT_COLORS[status as StatusType],
   }))
 
-  // Completion by team
+  // Completion by team — filtered by type
   const teamCompletion = TEAMS.map(team => {
-    const teamItems = items.filter(i => i.team === team && i.type === 'task')
+    const teamItems = items.filter(i => i.team === team && (teamFilter === 'all' || i.type === teamFilter))
     const done = teamItems.filter(i => i.status === 'done').length
     return { team, total: teamItems.length, done, pct: teamItems.length > 0 ? Math.round((done / teamItems.length) * 100) : 0 }
   })
@@ -122,13 +155,14 @@ export function DashboardView({ items, tree, onSelectItem }: {
         <p className="text-sm text-muted-foreground mt-0.5">Helicopter view across all teams</p>
       </div>
 
-      {/* Hero: 3 most urgent */}
+      {/* Hero: 3 most urgent — all types */}
       <div>
         <SectionTitle icon={Zap} label="Most Urgent" />
         <div className="grid grid-cols-3 gap-3">
           {urgent.map((item, idx) => {
             const days = daysUntilDeadline(item.deadline_value)
             const status = getEffectiveStatus(item)
+            const parentChain = getParentChain(item, items)
             return (
               <motion.button
                 key={item.id}
@@ -138,14 +172,33 @@ export function DashboardView({ items, tree, onSelectItem }: {
                 onClick={() => onSelectItem(item)}
                 className="text-left bg-card border border-border rounded-xl p-4 card-glow hover:border-primary/50 transition-all group"
               >
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <StatusBadge status={status} />
+                {/* Type badge + time left */}
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <span className={cn('text-xs font-medium px-1.5 py-0.5 rounded', TYPE_COLORS[item.type])}>
+                    {TYPE_LABEL[item.type]}
+                  </span>
                   <span className="text-xs text-muted-foreground">
                     {days < 0 ? `${Math.abs(days)}d overdue` : days === 0 ? 'Due today' : `${days}d left`}
                   </span>
                 </div>
+
+                {/* Parent chain breadcrumb for KR/Task */}
+                {parentChain.length > 0 && (
+                  <div className="flex items-center gap-1 mb-1.5 flex-wrap">
+                    {parentChain.map((p, i) => (
+                      <span key={p.id} className="flex items-center gap-1">
+                        {i > 0 && <span className="text-muted-foreground/50 text-xs">›</span>}
+                        <span className="text-xs text-muted-foreground truncate max-w-[80px]">{p.title}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
                 <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors line-clamp-2">{item.title}</p>
-                <p className="text-xs text-muted-foreground mt-1 capitalize">{item.team} · {item.owners?.join(', ')}</p>
+                <div className="flex items-center justify-between mt-2">
+                  <p className="text-xs text-muted-foreground capitalize">{item.team} · {item.owners?.join(', ')}</p>
+                  <StatusBadge status={status} />
+                </div>
               </motion.button>
             )
           })}
@@ -231,7 +284,28 @@ export function DashboardView({ items, tree, onSelectItem }: {
 
         {/* Completion by team */}
         <Widget>
-          <SectionTitle icon={CheckCircle} label="Completion by Team" />
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="w-4 h-4 text-muted-foreground" />
+              <h2 className="text-sm font-semibold text-foreground">Completion by Team</h2>
+            </div>
+            <div className="flex items-center gap-1">
+              {FILTER_TYPES.map(f => (
+                <button
+                  key={f.value}
+                  onClick={() => setTeamFilter(f.value)}
+                  className={cn(
+                    'text-xs px-2 py-0.5 rounded-full transition-colors',
+                    teamFilter === f.value
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="space-y-3">
             {teamCompletion.map(t => (
               <div key={t.team}>
