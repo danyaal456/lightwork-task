@@ -40,7 +40,27 @@ const statusRows = [
   {
     badges: [{ label: 'Not Started', color: 'bg-zinc-500/20 text-zinc-400 border-zinc-500/30' }],
     how: 'Manual',
-    desc: 'Default state. Nothing has been started yet. Clears automatically when you mark Done.',
+    desc: 'Default state. Nothing has been started yet, deadline is fine.',
+  },
+  {
+    badges: [{ label: 'In Progress', color: 'bg-sky-500/20 text-sky-400 border-sky-500/30' }],
+    how: 'Manual',
+    desc: 'Work is actively underway. Set this once you\'ve started.',
+  },
+  {
+    badges: [{ label: 'Done', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' }],
+    how: 'Manual',
+    desc: 'Marked complete. Overrides all urgency — deadline no longer matters.',
+  },
+  {
+    badges: [{ label: 'On Track', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' }],
+    how: 'Auto',
+    desc: 'In Progress and deadline is more than 2 days away.',
+  },
+  {
+    badges: [{ label: 'At Risk', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30' }],
+    how: 'Auto',
+    desc: 'Deadline is ≤ 2 days away and item is not done.',
   },
   {
     badges: [
@@ -48,27 +68,20 @@ const statusRows = [
       { label: 'At Risk', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
     ],
     how: 'Auto',
-    desc: 'Item hasn\'t been started AND deadline is ≤ 2 days away. Both badges show together.',
+    desc: 'Not Started and deadline is ≤ 2 days away. Both badges show together.',
   },
   {
-    badges: [{ label: 'At Risk', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30' }],
+    badges: [
+      { label: 'NS', color: 'bg-zinc-500/20 text-zinc-400 border-zinc-500/30' },
+      { label: 'Missed', color: 'bg-red-500/20 text-red-400 border-red-500/30' },
+    ],
     how: 'Auto',
-    desc: 'Work has started but the deadline is ≤ 2 days away.',
-  },
-  {
-    badges: [{ label: 'On Track', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' }],
-    how: 'Auto',
-    desc: 'Work has started and the deadline is more than 2 days away.',
+    desc: 'Not Started and deadline has passed.',
   },
   {
     badges: [{ label: 'Missed', color: 'bg-red-500/20 text-red-400 border-red-500/30' }],
     how: 'Auto',
-    desc: 'Deadline has passed and the item is not marked Done.',
-  },
-  {
-    badges: [{ label: 'Done', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' }],
-    how: 'Manual',
-    desc: 'Marked complete. Overrides all urgency — deadline no longer matters.',
+    desc: 'In Progress but deadline has passed.',
   },
 ]
 
@@ -123,7 +136,7 @@ export function OverviewView() {
       <section>
         <h2 className="text-sm font-semibold text-foreground mb-1">Status System</h2>
         <p className="text-sm text-muted-foreground mb-4">
-          Status has two dimensions: <strong className="text-foreground">completion</strong> (manual — Not Started or Done) and <strong className="text-foreground">urgency</strong> (auto-computed from deadline). These combine into the badges you see.
+          Status has two dimensions: <strong className="text-foreground">completion</strong> (manual — Not Started, In Progress, or Done) and <strong className="text-foreground">urgency</strong> (auto-computed from deadline). These combine into the badges you see.
         </p>
         <div className="space-y-2">
           {statusRows.map((row, i) => (
@@ -205,7 +218,8 @@ export function OverviewView() {
             'Max 3 levels: Objective → Key Result → Task',
             'Items can exist without parents — standalone KRs and Tasks are valid',
             'Status is only settable on leaf items (those with no children)',
-            'At Risk and Missed are computed automatically — you cannot manually set them',
+            'Completion has three manual states: Not Started, In Progress, Done',
+            'On Track, At Risk, and Missed are computed automatically from the deadline — you cannot manually set them',
             'Deleting a parent deletes all its children',
           ].map((rule, i) => (
             <div key={i} className="flex items-start gap-2">
