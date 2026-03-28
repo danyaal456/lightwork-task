@@ -10,7 +10,7 @@ const views = [
   { id: 'dashboard' as ViewType, label: 'Dashboard', icon: LayoutDashboard },
   { id: 'timeline' as ViewType, label: 'Timeline', icon: Clock },
   { id: 'items' as ViewType, label: 'All Items', icon: List },
-  { id: 'overview' as ViewType, label: 'Overview', icon: BookOpen },
+  { id: 'overview' as ViewType, label: 'Guide', icon: BookOpen },
 ]
 
 export function Sidebar({ activeView, onViewChange }: {
