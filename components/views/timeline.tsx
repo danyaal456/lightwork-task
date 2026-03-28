@@ -2,7 +2,7 @@
 
 import { Item } from '@/lib/supabase'
 import { getEffectiveStatus, formatDeadline, daysUntilDeadline } from '@/lib/utils'
-import { StatusBadge } from '@/components/status-badge'
+import { ItemStatusBadge } from '@/components/status-badge'
 import { motion } from 'framer-motion'
 import { Calendar } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -48,7 +48,6 @@ export function TimelineView({ items, onSelectItem }: {
             <div className="space-y-2 ml-6">
               {group.items.map((item, idx) => {
                 const days = daysUntilDeadline(item.deadline_value)
-                const status = getEffectiveStatus(item)
                 return (
                   <motion.button
                     key={item.id}
@@ -77,7 +76,7 @@ export function TimelineView({ items, onSelectItem }: {
                     </div>
 
                     {/* Status */}
-                    <StatusBadge status={status} />
+                    <ItemStatusBadge item={item} />
 
                     {/* Deadline */}
                     <div className="text-right shrink-0">

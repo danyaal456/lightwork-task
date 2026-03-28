@@ -8,8 +8,18 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function getEffectiveStatus(item: Item): StatusType {
-  // Status is fully manual — always use what's stored
-  return item.status
+  if (item.status === 'done') return 'done'
+  const daysUntil = differenceInDays(parseISO(item.deadline_value), new Date())
+  if (daysUntil < 0) return 'missed'
+  if (daysUntil <= 2) return 'at_risk'
+  // Fine deadline: preserve not_started, otherwise on_track
+  return item.status === 'not_started' ? 'not_started' : 'on_track'
+}
+
+// True when an item should show the "NS" badge alongside an urgency badge
+// Only case: not_started + at_risk deadline (the "Not Started · At Risk" combo)
+export function isNotStartedAtRisk(item: Item): boolean {
+  return item.status === 'not_started' && getEffectiveStatus(item) === 'at_risk'
 }
 
 const STATUS_RANK: Record<StatusType, number> = {

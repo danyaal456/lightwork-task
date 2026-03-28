@@ -3,15 +3,14 @@
 import { Item, Note, Link } from '@/lib/supabase'
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, ExternalLink, Plus, Trash2, ChevronRight, Link2, MessageSquare, Check } from 'lucide-react'
-import { StatusBadge } from '@/components/status-badge'
+import { X, ExternalLink, Plus, Trash2, ChevronRight, Link2, MessageSquare, Check, Calendar } from 'lucide-react'
+import { ItemStatusBadge, StatusBadge } from '@/components/status-badge'
 import { fetchNotes, addNote, fetchLinks, addLink, deleteLink, updateItem } from '@/lib/db'
-import { formatDeadline, getEffectiveStatus, STATUS_LABELS, TEAM_COLORS } from '@/lib/utils'
-import { StatusType, TeamType } from '@/lib/supabase'
+import { formatDeadline, getEffectiveStatus, isNotStartedAtRisk, STATUS_COLORS, TEAM_COLORS } from '@/lib/utils'
+import { StatusType, TeamType, DeadlineType } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 
-const STATUS_OPTIONS: StatusType[] = ['not_started', 'on_track', 'at_risk', 'missed', 'done']
 const TEAM_OPTIONS: TeamType[] = ['engineering', 'product', 'commercial', 'operations']
 
 export function SidePanel({ item, allItems, onClose, onRefresh, onSelectItem }: {
@@ -31,6 +30,8 @@ export function SidePanel({ item, allItems, onClose, onRefresh, onSelectItem }: 
   const [editingTeams, setEditingTeams] = useState(false)
   const [editingOwners, setEditingOwners] = useState(false)
   const [ownerInput, setOwnerInput] = useState('')
+  const [editingDeadline, setEditingDeadline] = useState(false)
+  const [deadlineInput, setDeadlineInput] = useState(item.deadline_value)
 
   const parent = item.parent_id ? allItems.find(i => i.id === item.parent_id) : null
   const parentParent = parent?.parent_id ? allItems.find(i => i.id === parent.parent_id) : null
@@ -92,6 +93,15 @@ export function SidePanel({ item, allItems, onClose, onRefresh, onSelectItem }: 
     onRefresh()
   }
 
+  async function handleDeadlineSave() {
+    if (!deadlineInput) return
+    // Infer deadline_type from the value length/format
+    const type: DeadlineType = item.deadline_type
+    await updateItem(item.id, { deadline_value: deadlineInput, deadline_type: type })
+    setEditingDeadline(false)
+    onRefresh()
+  }
+
   // Breadcrumbs
   const breadcrumbs = [
     parentParent,
@@ -139,7 +149,7 @@ export function SidePanel({ item, allItems, onClose, onRefresh, onSelectItem }: 
 
           {/* Meta row */}
           <div className="flex items-center gap-2 mt-2 flex-wrap">
-            <StatusBadge status={effectiveStatus} />
+            <ItemStatusBadge item={item} />
 
             {/* Editable teams (multi-select) */}
             <div className="relative">
@@ -184,9 +194,30 @@ export function SidePanel({ item, allItems, onClose, onRefresh, onSelectItem }: 
               )}
             </div>
 
-            <span className="text-xs text-muted-foreground">
-              Due {formatDeadline(item.deadline_type, item.deadline_value)}
-            </span>
+            {/* Editable deadline */}
+            {editingDeadline ? (
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="date"
+                  autoFocus
+                  value={deadlineInput}
+                  onChange={e => setDeadlineInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleDeadlineSave(); if (e.key === 'Escape') setEditingDeadline(false) }}
+                  className="text-xs bg-muted border border-primary rounded px-2 py-0.5 outline-none text-foreground"
+                />
+                <button onClick={handleDeadlineSave} className="text-xs text-primary hover:opacity-80">Save</button>
+                <button onClick={() => setEditingDeadline(false)} className="text-xs text-muted-foreground hover:text-foreground">✕</button>
+              </div>
+            ) : (
+              <button
+                onClick={() => { setDeadlineInput(item.deadline_value); setEditingDeadline(true) }}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors group/dl"
+              >
+                <Calendar className="w-3 h-3" />
+                Due {formatDeadline(item.deadline_type, item.deadline_value)}
+                <span className="opacity-0 group-hover/dl:opacity-100 text-xs text-primary transition-opacity">(edit)</span>
+              </button>
+            )}
           </div>
 
           {/* Editable owners */}
@@ -232,26 +263,36 @@ export function SidePanel({ item, allItems, onClose, onRefresh, onSelectItem }: 
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto">
-          {/* Status override — only on leaf items (no children) */}
+          {/* Status section */}
           {children.length === 0 ? (
-            <div className="px-5 py-4 border-b border-border">
-              <p className="text-xs font-medium text-muted-foreground mb-2">Set Status</p>
-              <div className="flex flex-wrap gap-1.5">
-                {STATUS_OPTIONS.map(s => (
-                  <button
-                    key={s}
-                    onClick={() => handleStatusChange(s)}
-                    disabled={savingStatus}
-                    className={cn(
-                      'text-xs px-2.5 py-1 rounded-full border transition-all',
-                      effectiveStatus === s
-                        ? 'bg-primary text-primary-foreground border-primary'
-                        : 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30'
-                    )}
-                  >
-                    {STATUS_LABELS[s]}
-                  </button>
-                ))}
+            <div className="px-5 py-4 border-b border-border space-y-3">
+              {/* Completion — manual */}
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1.5">Completion</p>
+                <div className="flex gap-2">
+                  {(['not_started', 'done'] as const).map(s => (
+                    <button
+                      key={s}
+                      onClick={() => handleStatusChange(s)}
+                      disabled={savingStatus}
+                      className={cn(
+                        'text-xs px-3 py-1 rounded-full border transition-all',
+                        item.status === s
+                          ? s === 'done'
+                            ? 'bg-blue-500/20 text-blue-400 border-blue-500/40'
+                            : 'bg-zinc-500/20 text-zinc-300 border-zinc-500/40'
+                          : 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30'
+                      )}
+                    >
+                      {s === 'not_started' ? 'Not Started' : 'Done'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* Urgency — auto */}
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1.5">Urgency <span className="font-normal opacity-60">· auto from deadline</span></p>
+                <ItemStatusBadge item={item} />
               </div>
             </div>
           ) : (

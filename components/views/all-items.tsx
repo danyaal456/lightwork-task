@@ -2,7 +2,7 @@
 
 import { Item, ItemType, TeamType, StatusType } from '@/lib/supabase'
 import { getEffectiveStatus, formatDeadline, TEAM_COLORS, STATUS_LABELS, STATUS_COLORS } from '@/lib/utils'
-import { StatusBadge } from '@/components/status-badge'
+import { ItemStatusBadge } from '@/components/status-badge'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ChevronRight, Plus, Trash2, Users, Check, X, Filter } from 'lucide-react'
 import { useState, useMemo } from 'react'
@@ -198,7 +198,7 @@ function ItemRow({ item, onSelectItem, onRefresh, indent = 0 }: {
 
         <OwnersTag owners={item.owners ?? []} />
 
-        <StatusBadge status={getEffectiveStatus(item)} />
+        <ItemStatusBadge item={item} />
         <span className="text-xs text-muted-foreground shrink-0">{formatDeadline(item.deadline_type, item.deadline_value)}</span>
 
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
@@ -450,7 +450,7 @@ export function AllItemsView({ tree, allItems, onSelectItem, onRefresh }: {
                   ))}
                 </div>
                 <OwnersTag owners={item.owners ?? []} />
-                <StatusBadge status={getEffectiveStatus(item)} />
+                <ItemStatusBadge item={item} />
                 <span className="text-xs text-muted-foreground shrink-0">{formatDeadline(item.deadline_type, item.deadline_value)}</span>
               </div>
             ))
