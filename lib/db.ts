@@ -88,7 +88,8 @@ export async function updateItem(id: string, updates: Partial<{
 }>): Promise<void> {
   const { owners, ...itemUpdates } = updates
   if (Object.keys(itemUpdates).length > 0) {
-    await supabase.from('items').update(itemUpdates).eq('id', id)
+    const { error } = await supabase.from('items').update(itemUpdates).eq('id', id)
+    if (error) throw error
   }
   if (owners !== undefined) {
     await supabase.from('item_owners').delete().eq('item_id', id)

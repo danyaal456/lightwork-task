@@ -139,8 +139,12 @@ function ItemRow({ item, onSelectItem, onRefresh, indent = 0 }: {
   async function handleTeamToggle(team: TeamType) {
     const current = item.teams ?? []
     const next = current.includes(team) ? current.filter(t => t !== team) : [...current, team]
-    await updateItem(item.id, { teams: next })
-    onRefresh()
+    try {
+      await updateItem(item.id, { teams: next })
+      onRefresh()
+    } catch (e) {
+      console.error('Failed to update teams:', e)
+    }
   }
 
   const childOptions: ItemType[] =
@@ -318,17 +322,21 @@ export function AllItemsView({ tree, allItems, onSelectItem, onRefresh }: {
   async function handleAdd() {
     if (!newTitle.trim() || !addingType) return
     const opt = ROOT_OPTIONS.find(o => o.type === addingType)!
-    await createItem({
-      type: addingType,
-      title: newTitle.trim(),
-      teams: ['operations'],
-      deadline_type: opt.deadline_type,
-      deadline_value: opt.deadline_value,
-      owners: [],
-    })
-    setNewTitle('')
-    setAddingType(null)
-    onRefresh()
+    try {
+      await createItem({
+        type: addingType,
+        title: newTitle.trim(),
+        teams: ['operations'],
+        deadline_type: opt.deadline_type,
+        deadline_value: opt.deadline_value,
+        owners: [],
+      })
+      setNewTitle('')
+      setAddingType(null)
+      onRefresh()
+    } catch (e) {
+      console.error('Failed to create item:', e)
+    }
   }
 
   return (
@@ -444,11 +452,15 @@ export function AllItemsView({ tree, allItems, onSelectItem, onRefresh }: {
                 >
                   {item.title}
                 </button>
-                <div className="flex items-center gap-1 flex-wrap">
-                  {(item.teams ?? []).map(t => (
-                    <span key={t} className={cn('text-xs px-2 py-0.5 rounded-full capitalize', TEAM_COLORS[t])}>{t}</span>
-                  ))}
-                </div>
+                <TeamTags
+                  teams={item.teams ?? []}
+                  onToggle={async (team) => {
+                    const current = item.teams ?? []
+                    const next = current.includes(team) ? current.filter(t => t !== team) : [...current, team]
+                    await updateItem(item.id, { teams: next })
+                    onRefresh()
+                  }}
+                />
                 <OwnersTag owners={item.owners ?? []} />
                 <ItemStatusBadge item={item} />
                 <span className="text-xs text-muted-foreground shrink-0">{formatDeadline(item.deadline_type, item.deadline_value)}</span>

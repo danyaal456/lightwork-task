@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X, ExternalLink, Plus, Trash2, ChevronRight, Link2, MessageSquare, Check, Calendar } from 'lucide-react'
 import { ItemStatusBadge, StatusBadge } from '@/components/status-badge'
 import { fetchNotes, addNote, fetchLinks, addLink, deleteLink, updateItem } from '@/lib/db'
-import { formatDeadline, getEffectiveStatus, isNotStartedAtRisk, STATUS_COLORS, TEAM_COLORS } from '@/lib/utils'
+import { formatDeadline, getEffectiveStatus, STATUS_COLORS, TEAM_COLORS } from '@/lib/utils'
 import { StatusType, TeamType, DeadlineType } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
@@ -32,6 +32,7 @@ export function SidePanel({ item, allItems, onClose, onRefresh, onSelectItem }: 
   const [ownerInput, setOwnerInput] = useState('')
   const [editingDeadline, setEditingDeadline] = useState(false)
   const [deadlineInput, setDeadlineInput] = useState(item.deadline_value)
+  const [deadlineEditType, setDeadlineEditType] = useState<DeadlineType>(item.deadline_type)
 
   const parent = item.parent_id ? allItems.find(i => i.id === item.parent_id) : null
   const parentParent = parent?.parent_id ? allItems.find(i => i.id === parent.parent_id) : null
@@ -95,9 +96,7 @@ export function SidePanel({ item, allItems, onClose, onRefresh, onSelectItem }: 
 
   async function handleDeadlineSave() {
     if (!deadlineInput) return
-    // Infer deadline_type from the value length/format
-    const type: DeadlineType = item.deadline_type
-    await updateItem(item.id, { deadline_value: deadlineInput, deadline_type: type })
+    await updateItem(item.id, { deadline_value: deadlineInput, deadline_type: deadlineEditType })
     setEditingDeadline(false)
     onRefresh()
   }
@@ -196,21 +195,85 @@ export function SidePanel({ item, allItems, onClose, onRefresh, onSelectItem }: 
 
             {/* Editable deadline */}
             {editingDeadline ? (
-              <div className="flex items-center gap-1.5">
-                <input
-                  type="date"
-                  autoFocus
-                  value={deadlineInput}
-                  onChange={e => setDeadlineInput(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') handleDeadlineSave(); if (e.key === 'Escape') setEditingDeadline(false) }}
-                  className="text-xs bg-muted border border-primary rounded px-2 py-0.5 outline-none text-foreground"
-                />
-                <button onClick={handleDeadlineSave} className="text-xs text-primary hover:opacity-80">Save</button>
-                <button onClick={() => setEditingDeadline(false)} className="text-xs text-muted-foreground hover:text-foreground">✕</button>
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-1">
+                  {(['date', 'month', 'quarter'] as const).map(t => (
+                    <button
+                      key={t}
+                      onClick={() => setDeadlineEditType(t)}
+                      className={cn(
+                        'text-xs px-2 py-0.5 rounded capitalize transition-colors',
+                        deadlineEditType === t ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'
+                      )}
+                    >
+                      {t === 'date' ? 'Date' : t === 'month' ? 'Month' : 'Quarter'}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {deadlineEditType === 'date' && (
+                    <input
+                      type="date"
+                      autoFocus
+                      value={deadlineInput}
+                      onChange={e => setDeadlineInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') handleDeadlineSave(); if (e.key === 'Escape') setEditingDeadline(false) }}
+                      className="text-xs bg-muted border border-primary rounded px-2 py-0.5 outline-none text-foreground"
+                    />
+                  )}
+                  {deadlineEditType === 'month' && (
+                    <input
+                      type="month"
+                      autoFocus
+                      value={deadlineInput.slice(0, 7)}
+                      onChange={e => {
+                        const [y, m] = e.target.value.split('-').map(Number)
+                        const lastDay = new Date(y, m, 0).toISOString().split('T')[0]
+                        setDeadlineInput(lastDay)
+                      }}
+                      onKeyDown={e => { if (e.key === 'Enter') handleDeadlineSave(); if (e.key === 'Escape') setEditingDeadline(false) }}
+                      className="text-xs bg-muted border border-primary rounded px-2 py-0.5 outline-none text-foreground"
+                    />
+                  )}
+                  {deadlineEditType === 'quarter' && (
+                    <div className="flex items-center gap-1">
+                      <select
+                        value={Math.floor(new Date(deadlineInput).getMonth() / 3) + 1}
+                        onChange={e => {
+                          const q = Number(e.target.value)
+                          const year = new Date(deadlineInput).getFullYear()
+                          const lastDay = new Date(year, q * 3, 0).toISOString().split('T')[0]
+                          setDeadlineInput(lastDay)
+                        }}
+                        className="text-xs bg-muted border border-primary rounded px-2 py-0.5 outline-none text-foreground"
+                      >
+                        <option value={1}>Q1</option>
+                        <option value={2}>Q2</option>
+                        <option value={3}>Q3</option>
+                        <option value={4}>Q4</option>
+                      </select>
+                      <input
+                        type="number"
+                        value={new Date(deadlineInput).getFullYear()}
+                        onChange={e => {
+                          const year = Number(e.target.value)
+                          const q = Math.floor(new Date(deadlineInput).getMonth() / 3) + 1
+                          const lastDay = new Date(year, q * 3, 0).toISOString().split('T')[0]
+                          setDeadlineInput(lastDay)
+                        }}
+                        min={2024}
+                        max={2030}
+                        className="text-xs bg-muted border border-primary rounded px-2 py-0.5 outline-none text-foreground w-16"
+                      />
+                    </div>
+                  )}
+                  <button onClick={handleDeadlineSave} className="text-xs text-primary hover:opacity-80">Save</button>
+                  <button onClick={() => setEditingDeadline(false)} className="text-xs text-muted-foreground hover:text-foreground">✕</button>
+                </div>
               </div>
             ) : (
               <button
-                onClick={() => { setDeadlineInput(item.deadline_value); setEditingDeadline(true) }}
+                onClick={() => { setDeadlineInput(item.deadline_value); setDeadlineEditType(item.deadline_type); setEditingDeadline(true) }}
                 className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors group/dl"
               >
                 <Calendar className="w-3 h-3" />
@@ -270,21 +333,23 @@ export function SidePanel({ item, allItems, onClose, onRefresh, onSelectItem }: 
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-1.5">Completion</p>
                 <div className="flex gap-2">
-                  {(['not_started', 'done'] as const).map(s => (
+                  {([
+                    { value: 'not_started', label: 'Not Started', active: 'bg-zinc-500/20 text-zinc-300 border-zinc-500/40' },
+                    { value: 'in_progress', label: 'In Progress', active: 'bg-sky-500/20 text-sky-400 border-sky-500/40' },
+                    { value: 'done', label: 'Done', active: 'bg-blue-500/20 text-blue-400 border-blue-500/40' },
+                  ] as const).map(s => (
                     <button
-                      key={s}
-                      onClick={() => handleStatusChange(s)}
+                      key={s.value}
+                      onClick={() => handleStatusChange(s.value)}
                       disabled={savingStatus}
                       className={cn(
                         'text-xs px-3 py-1 rounded-full border transition-all',
-                        item.status === s
-                          ? s === 'done'
-                            ? 'bg-blue-500/20 text-blue-400 border-blue-500/40'
-                            : 'bg-zinc-500/20 text-zinc-300 border-zinc-500/40'
+                        item.status === s.value
+                          ? s.active
                           : 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30'
                       )}
                     >
-                      {s === 'not_started' ? 'Not Started' : 'Done'}
+                      {s.label}
                     </button>
                   ))}
                 </div>

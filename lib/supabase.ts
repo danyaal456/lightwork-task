@@ -20,7 +20,7 @@ export const supabase = new Proxy({} as SupabaseClient, {
 
 export type ItemType = 'objective' | 'key_result' | 'task'
 export type TeamType = 'engineering' | 'product' | 'commercial' | 'operations'
-export type StatusType = 'not_started' | 'on_track' | 'at_risk' | 'missed' | 'done'
+export type StatusType = 'not_started' | 'in_progress' | 'on_track' | 'at_risk' | 'missed' | 'done'
 export type DeadlineType = 'date' | 'month' | 'quarter'
 
 export interface Item {

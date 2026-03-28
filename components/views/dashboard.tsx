@@ -21,6 +21,7 @@ const TEAM_LABELS: Record<TeamType, string> = {
 
 const STATUS_DONUT_COLORS: Record<StatusType, string> = {
   not_started: '#71717a',
+  in_progress: '#0ea5e9',
   on_track: '#10b981',
   at_risk: '#f59e0b',
   missed: '#ef4444',
